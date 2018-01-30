@@ -132,5 +132,5 @@ int main(int argc, char **argv)
     cur_algo = &cubic_cc_algo;
     subtest("cubic", test_algo);
 
-    done_testing();
+    return done_testing();
 }
