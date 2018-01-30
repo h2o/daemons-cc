@@ -109,7 +109,7 @@ void cc_ack_received(struct cc_var *ccv, uint16_t type, uint32_t bytes_in_pipe, 
     CCV(ccv, snd_pipe) = bytes_in_pipe;
 
     if (exit_recovery) {
-        CCV(ccv, t_flags) &= ~CC_TF_RESTRANSMIT;
+        CCV(ccv, t_flags) &= ~CC_TF_RETRANSMIT;
         if (CC_ALGO(ccv)->post_recovery != NULL)
             CC_ALGO(ccv)->post_recovery(ccv);
         CCV(ccv, t_bytes_acked) = 0;
@@ -178,7 +178,7 @@ void cc_cong_signal(struct cc_var *ccv, uint32_t type, uint32_t bytes_in_pipe)
         EXIT_RECOVERY(CCV(ccv, t_flags));
         CCV(ccv, snd_ssthresh) = max(2, min(bytes_in_pipe, CCV(ccv, snd_cwnd)) / 2 / maxseg) * maxseg;
         CCV(ccv, snd_cwnd) = maxseg; /* KAZUHO FreeBSD does this; but is it correct? */
-        CCV(ccv, t_flags) |= CC_TF_RESTRANSMIT;
+        CCV(ccv, t_flags) |= CC_TF_RETRANSMIT;
         break;
     case CC_RTO_ERR:
         CCV(ccv, snd_cwnd) = CCV(ccv, snd_cwnd_prev);

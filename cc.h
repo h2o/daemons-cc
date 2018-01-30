@@ -58,7 +58,7 @@ extern int cc_tcp_abc_l_var;
 extern int cc_hz;
 extern volatile int cc_ticks;
 
-#define CC_TF_RESTRANSMIT 0x1
+#define CC_TF_RETRANSMIT 0x1
 #define CC_TF_PREVVALID 0x2
 #define CC_TF_FASTRECOVERY 0x10 /* in NewReno Fast Recovery */
 #define CC_TF_CONGRECOVERY 0x20 /* congestion recovery mode */
