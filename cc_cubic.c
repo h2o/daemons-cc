@@ -45,27 +45,8 @@
  *   http://caia.swin.edu.au/urp/newtcp/
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
-#include <sys/param.h>
-#include <sys/kernel.h>
-#include <sys/malloc.h>
-#include <sys/module.h>
-#include <sys/socket.h>
-#include <sys/socketvar.h>
-#include <sys/sysctl.h>
-#include <sys/systm.h>
-
-#include <net/vnet.h>
-
-#include <netinet/tcp.h>
-#include <netinet/tcp_seq.h>
-#include <netinet/tcp_timer.h>
-#include <netinet/tcp_var.h>
-#include <netinet/cc/cc.h>
-#include <netinet/cc/cc_cubic.h>
-#include <netinet/cc/cc_module.h>
+#include "cc_int.h"
+#include "cc_cubic.h"
 
 static void	cubic_ack_received(struct cc_var *ccv, uint16_t type);
 static void	cubic_cb_destroy(struct cc_var *ccv);
@@ -317,10 +298,7 @@ cubic_post_recovery(struct cc_var *ccv)
 		 *
 		 * XXXLAS: Find a way to do this without needing curack
 		 */
-		if (V_tcp_do_rfc6675_pipe)
-			pipe = tcp_compute_pipe(ccv->ccvc.tcp);
-		else
-			pipe = CCV(ccv, snd_max) - ccv->curack;
+		pipe = CCV(ccv, snd_pipe);
 
 		if (pipe < CCV(ccv, snd_ssthresh))
 			CCV(ccv, snd_cwnd) = pipe + CCV(ccv, t_maxseg);

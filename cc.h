@@ -3,6 +3,7 @@
  * 	Swinburne University of Technology, Melbourne, Australia.
  * Copyright (c) 2009-2010 Lawrence Stewart <lstewart@freebsd.org>
  * Copyright (c) 2010 The FreeBSD Foundation
+ * Copyright (c) 2017,2018 Fastly
  * All rights reserved.
  *
  * This software was developed at the Centre for Advanced Internet
@@ -51,25 +52,58 @@
 #ifndef _NETINET_CC_CC_H_
 #define _NETINET_CC_CC_H_
 
-#if !defined(_KERNEL)
-#error "no user-serviceable parts inside"
-#endif
+extern int cc_tcp_do_rfc3390;
+extern int cc_tcp_do_rfc3465;
+extern int cc_tcp_abc_l_var;
+extern int cc_hz;
+extern volatile int cc_ticks;
+
+#define CC_TF_RESTRANSMIT 0x1
+#define CC_TF_PREVVALID 0x2
+#define CC_TF_FASTRECOVERY 0x10 /* in NewReno Fast Recovery */
+#define CC_TF_CONGRECOVERY 0x20 /* congestion recovery mode */
+#define CC_TF_WASFRECOVERY 0x100        /* in NewReno Fast Recovery */
+#define CC_TF_WASCRECOVERY 0x200        /* was in NewReno Fast Recovery */
+
+#define CC_IN_RECOVERY(t_flags) (t_flags & (CC_TF_CONGRECOVERY | CC_TF_FASTRECOVERY))
+#define CC_ENTER_RECOVERY(t_flags) t_flags |= (CC_TF_CONGRECOVERY | CC_TF_FASTRECOVERY)
+#define CC_EXIT_RECOVERY(t_flags) t_flags &= ~(CC_TF_CONGRECOVERY | CC_TF_FASTRECOVERY)
+
+#define CC_IN_FASTRECOVERY(t_flags)        (t_flags & CC_TF_FASTRECOVERY)
+#define CC_ENTER_FASTRECOVERY(t_flags)     t_flags |= CC_TF_FASTRECOVERY
+#define CC_EXIT_FASTRECOVERY(t_flags)      t_flags &= ~CC_TF_FASTRECOVERY
+
+#define CC_IN_CONGRECOVERY(t_flags)        (t_flags & CC_TF_CONGRECOVERY)
+#define CC_ENTER_CONGRECOVERY(t_flags)     t_flags |= CC_TF_CONGRECOVERY
+#define CC_EXIT_CONGRECOVERY(t_flags)      t_flags &= ~CC_TF_CONGRECOVERY
+
+void *cc_malloc(size_t sz, const char *lbl);
+void cc_free(void *p, const char *lbl);
 
 /* Global CC vars. */
-extern STAILQ_HEAD(cc_head, cc_algo) cc_list;
-extern const int tcprexmtthresh;
 extern struct cc_algo newreno_cc_algo;
 
-/* Per-netstack bits. */
-VNET_DECLARE(struct cc_algo *, default_cc_ptr);
-#define	V_default_cc_ptr VNET(default_cc_ptr)
+/* control block (mostly taken from sys/netinet/tcp_var.h) */
+struct cc_ccv {
+    unsigned t_flags;
+    uint32_t snd_pipe;
+    uint32_t snd_cwnd;             /* congestion-controlled window */
+    uint32_t  snd_ssthresh;         /* snd_cwnd size threshold for
+                                     * for slow start exponential to
+                                     * linear switch
+                                     */
+    u_char  snd_scale;              /* window scaling for send window */
+    int        t_bytes_acked;          /* # bytes acked during current RTT */
+    unsigned   t_maxseg;               /* maximum segment size */
+    unsigned long  t_rttupdated;           /* number of times rtt sampled */
+    int     t_srtt;                 /* smoothed round-trip time */
+    int     t_rxtshift;             /* log(2) of rexmt exp. backoff */
+    struct cc_algo  *cc_algo;
 
-/* Define the new net.inet.tcp.cc sysctl tree. */
-SYSCTL_DECL(_net_inet_tcp_cc);
-
-/* CC housekeeping functions. */
-int	cc_register_algo(struct cc_algo *add_cc);
-int	cc_deregister_algo(struct cc_algo *remove_cc);
+    unsigned t_badrxtwin;            /* window for retransmit recovery */
+    uint32_t snd_cwnd_prev;
+    uint32_t  snd_ssthresh_prev;
+};
 
 /*
  * Wrapper around transport structs that contain same-named congestion
@@ -79,12 +113,10 @@ int	cc_deregister_algo(struct cc_algo *remove_cc);
 struct cc_var {
 	void		*cc_data; /* Per-connection private CC algorithm data. */
 	int		bytes_this_ack; /* # bytes acked by the current ACK. */
-	tcp_seq		curack; /* Most recent ACK. */
 	uint32_t	flags; /* Flags for cc_var (see below) */
 	int		type; /* Indicates which ptr is valid in ccvc. */
 	union ccv_container {
-		struct tcpcb		*tcp;
-		struct sctp_nets	*sctp;
+		struct cc_ccv ccv;
 	} ccvc;
 	uint16_t	nsegs; /* # segments coalesced into current chain. */
 };
@@ -112,6 +144,7 @@ struct cc_var {
 #define	CC_RTO		0x00000002	/* RTO fired. */
 #define	CC_RTO_ERR	0x00000004	/* RTO fired in error. */
 #define	CC_NDUPACK	0x00000008	/* Threshold of dupack's reached. */
+#define CC_FIRST_RTO 0x00000010 /* first RTO */
 
 #define	CC_SIGPRIVMASK	0xFF000000	/* Mask to check if sig is private. */
 
@@ -120,7 +153,7 @@ struct cc_var {
  * congestion control algorithm.
  */
 struct cc_algo {
-	char	name[TCP_CA_NAME_MAX];
+	char	name[16];
 
 	/* Init global module state on kldload. */
 	int	(*mod_init)(void);
@@ -151,29 +184,36 @@ struct cc_algo {
 
 	/* Called for an additional ECN processing apart from RFC3168. */
 	void	(*ecnpkt_handler)(struct cc_var *ccv);
-
-	/* Called for {get|set}sockopt() on a TCP socket with TCP_CCALGOOPT. */
-	int     (*ctl_output)(struct cc_var *, struct sockopt *, void *);
-
-	STAILQ_ENTRY (cc_algo) entries;
 };
 
 /* Macro to obtain the CC algo's struct ptr. */
-#define	CC_ALGO(tp)	((tp)->cc_algo)
+#define	CC_ALGO(tp)	((tp)->ccvc.ccv.cc_algo)
 
 /* Macro to obtain the CC algo's data ptr. */
 #define	CC_DATA(tp)	((tp)->ccv->cc_data)
 
-/* Macro to obtain the system default CC algo's struct ptr. */
-#define	CC_DEFAULT()	V_default_cc_ptr
+int cc_init(struct cc_var *ccv, struct cc_algo *algo, uint32_t cwnd, unsigned maxseg);
+void cc_destroy(struct cc_var *ccv);
+void cc_ack_received(struct cc_var *ccv, uint16_t type, uint32_t bytes_in_pipe, uint16_t segs_acked, uint32_t bytes_acked,
+                     int exit_recovery);
+void cc_cong_signal(struct cc_var *ccv, uint32_t type, uint32_t bytes_in_pipe);
+static uint32_t cc_get_cwnd(struct cc_var *ccv);
+static unsigned cc_get_maxseg(struct cc_var *ccv);
+static void cc_set_maxseg(struct cc_var *ccv, unsigned maxseg);
 
-extern struct rwlock cc_list_lock;
-#define	CC_LIST_LOCK_INIT()	rw_init(&cc_list_lock, "cc_list")
-#define	CC_LIST_LOCK_DESTROY()	rw_destroy(&cc_list_lock)
-#define	CC_LIST_RLOCK()		rw_rlock(&cc_list_lock)
-#define	CC_LIST_RUNLOCK()	rw_runlock(&cc_list_lock)
-#define	CC_LIST_WLOCK()		rw_wlock(&cc_list_lock)
-#define	CC_LIST_WUNLOCK()	rw_wunlock(&cc_list_lock)
-#define	CC_LIST_LOCK_ASSERT()	rw_assert(&cc_list_lock, RA_LOCKED)
+inline uint32_t cc_get_cwnd(struct cc_var *ccv)
+{
+    return ccv->ccvc.ccv.snd_cwnd;
+}
+
+inline unsigned cc_get_maxseg(struct cc_var *ccv)
+{
+    return ccv->ccvc.ccv.t_maxseg;
+}
+
+inline void cc_set_maxseg(struct cc_var *ccv, unsigned maxseg)
+{
+    ccv->ccvc.ccv.t_maxseg = maxseg;
+}
 
 #endif /* _NETINET_CC_CC_H_ */
