@@ -193,7 +193,7 @@ struct cc_algo {
 
 int cc_init(struct cc_var *ccv, struct cc_algo *algo, uint32_t cwnd, unsigned maxseg);
 void cc_destroy(struct cc_var *ccv);
-void cc_ack_received(struct cc_var *ccv, uint16_t type, uint32_t bytes_in_pipe, uint16_t segs_acked, uint32_t bytes_acked,
+void cc_ack_received(struct cc_var *ccv, uint16_t type, uint32_t bytes_in_pipe, uint16_t segs_acked, uint32_t bytes_acked, int srtt,
                      int exit_recovery);
 void cc_cong_signal(struct cc_var *ccv, uint32_t type, uint32_t bytes_in_pipe);
 static uint32_t cc_get_cwnd(struct cc_var *ccv);

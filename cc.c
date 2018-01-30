@@ -103,7 +103,7 @@ void cc_destroy(struct cc_var *ccv)
         CCV(ccv, cc_algo)->cb_destroy(ccv);
 }
 
-void cc_ack_received(struct cc_var *ccv, uint16_t type, uint32_t bytes_in_pipe, uint16_t segs_acked, uint32_t bytes_acked,
+void cc_ack_received(struct cc_var *ccv, uint16_t type, uint32_t bytes_in_pipe, uint16_t segs_acked, uint32_t bytes_acked, int srtt,
                      int exit_recovery)
 {
     CCV(ccv, snd_pipe) = bytes_in_pipe;
@@ -133,6 +133,8 @@ void cc_ack_received(struct cc_var *ccv, uint16_t type, uint32_t bytes_in_pipe, 
             ccv->flags &= ~CCF_ABC_SENTAWND;
             CCV(ccv, t_bytes_acked) = 0;
         }
+        CCV(ccv, t_srtt) = srtt;
+        CCV(ccv, t_rttupdated) = CCV(ccv, t_rttupdated) + 1;
     }
 
     if (CC_ALGO(ccv)->ack_received != NULL) {

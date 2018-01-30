@@ -38,11 +38,11 @@ static void test_ss_core(void)
     int i;
 
     cc_ticks = 0;
-
     cc_init(&ccv, cur_algo, 1280 * 8, 1280);
+    cc_ticks += 10;
 
     for (i = 1; i <= 8; i += cur_step) {
-        cc_ack_received(&ccv, CC_ACK, cc_get_cwnd(&ccv), cur_step, cur_step * cc_get_maxseg(&ccv), 0);
+        cc_ack_received(&ccv, CC_ACK, cc_get_cwnd(&ccv), cur_step, cur_step * cc_get_maxseg(&ccv), 10, 0);
     }
     ok(cc_get_cwnd(&ccv) == 16 * cc_get_maxseg(&ccv));
 
@@ -60,19 +60,19 @@ static void test_rto(void)
 
     /* send four, get three acked (but not the second one) */
     bytes_in_pipe = cc_get_cwnd(&ccv);
-    ++cc_ticks;
-    cc_ack_received(&ccv, CC_ACK, bytes_in_pipe, 3, 3 * cc_get_maxseg(&ccv), 0);
+    cc_ticks += 10;
+    cc_ack_received(&ccv, CC_ACK, bytes_in_pipe, 3, 3 * cc_get_maxseg(&ccv), 10, 0);
     ok(cc_get_cwnd(&ccv) == 7 * cc_get_maxseg(&ccv));
 
     /* retransmit */
-    ++cc_ticks;
+    cc_ticks += 10;
     cc_cong_signal(&ccv, CC_RTO, cc_get_cwnd(&ccv));
     ok(ccv.ccvc.ccv.snd_ssthresh == 3 * cc_get_maxseg(&ccv));
     ok(cc_get_cwnd(&ccv) == cc_get_maxseg(&ccv));
 
     /* get acks for all */
-    ++cc_ticks;
-    cc_ack_received(&ccv, CC_ACK, bytes_in_pipe, 1, cc_get_maxseg(&ccv), 1);
+    cc_ticks += 10;
+    cc_ack_received(&ccv, CC_ACK, bytes_in_pipe, 1, cc_get_maxseg(&ccv), 10, 1);
     ok(cc_get_cwnd(&ccv) <= 2 * cc_get_maxseg(&ccv));
 
     cc_destroy(&ccv);
@@ -87,21 +87,21 @@ static void test_dupack(void)
     cc_init(&ccv, cur_algo, 1280 * 4, 1280);
 
     /* send 4 packets, got 3 dupacks */
-    ++cc_ticks;
-    cc_ack_received(&ccv, CC_DUPACK, 1280 * 4, 0, 0, 0);
-    ++cc_ticks;
-    cc_ack_received(&ccv, CC_DUPACK, 1280 * 4, 0, 0, 0);
-    ++cc_ticks;
+    cc_ticks += 10;
+    cc_ack_received(&ccv, CC_DUPACK, 1280 * 4, 0, 0, 10, 0);
+    cc_ticks += 10;
+    cc_ack_received(&ccv, CC_DUPACK, 1280 * 4, 0, 0, 10, 0);
+    cc_ticks += 10;
     cc_cong_signal(&ccv, CC_NDUPACK, 1280 * 4);
-    cc_ack_received(&ccv, CC_DUPACK, 1280 * 4, 0, 0, 0);
+    cc_ack_received(&ccv, CC_DUPACK, 1280 * 4, 0, 0, 10, 0);
 
     ok(CC_IN_RECOVERY(ccv.ccvc.ccv.t_flags));
     ok(cc_get_cwnd(&ccv) <= 1280 * 4);
-    ok(ccv.ccvc.ccv.snd_ssthresh == 1280 * 2);
+    ok(ccv.ccvc.ccv.snd_ssthresh < 1280 * 4);
 
     /* got ack for 4 packets */
-    ++cc_ticks;
-    cc_ack_received(&ccv, CC_ACK, 1280 * 4, 4, 1280 * 4, 1);
+    cc_ticks += 10;
+    cc_ack_received(&ccv, CC_ACK, 1280 * 4, 4, 1280 * 4, 10, 1);
     ok(cc_get_cwnd(&ccv) <= 1280 * 4);
 
     cc_destroy(&ccv);
