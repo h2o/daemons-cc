@@ -97,7 +97,6 @@ struct cc_ccv {
     unsigned   t_maxseg;               /* maximum segment size */
     unsigned long  t_rttupdated;           /* number of times rtt sampled */
     int     t_srtt;                 /* smoothed round-trip time */
-    int     t_rxtshift;             /* log(2) of rexmt exp. backoff */
     struct cc_algo  *cc_algo;
 
     unsigned t_badrxtwin;            /* window for retransmit recovery */
