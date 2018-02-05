@@ -92,7 +92,7 @@ struct cc_ccv {
                                      * for slow start exponential to
                                      * linear switch
                                      */
-    u_char  snd_scale;              /* window scaling for send window */
+    uint8_t  snd_scale;              /* window scaling for send window */
     int        t_bytes_acked;          /* # bytes acked during current RTT */
     unsigned   t_maxseg;               /* maximum segment size */
     unsigned long  t_rttupdated;           /* number of times rtt sampled */
