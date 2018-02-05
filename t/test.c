@@ -125,8 +125,6 @@ int main(int argc, char **argv)
 {
     extern struct cc_algo cubic_cc_algo;
 
-    cc_hz = 100;
-
     cur_algo = &newreno_cc_algo;
     subtest("newreno", test_algo);
     cur_algo = &cubic_cc_algo;

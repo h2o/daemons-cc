@@ -62,7 +62,7 @@ int cc_tcp_do_rfc3465 = 1;
 /* Cap the max cwnd increment during slow-start to this number of segments */
 int cc_tcp_abc_l_var = 2;
 
-int cc_hz;
+int cc_hz = 100;
 volatile int cc_ticks;
 
 void *cc_malloc(size_t sz, const char *lbl)
