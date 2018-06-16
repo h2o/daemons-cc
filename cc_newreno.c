@@ -68,8 +68,8 @@ newreno_ack_received(struct cc_var *ccv, uint16_t type)
 {
 	if (type == CC_ACK && !IN_RECOVERY(CCV(ccv, t_flags)) &&
 	    (ccv->flags & CCF_CWND_LIMITED)) {
-		u_int cw = CCV(ccv, snd_cwnd);
-		u_int incr = CCV(ccv, t_maxseg);
+		unsigned cw = CCV(ccv, snd_cwnd);
+		unsigned incr = CCV(ccv, t_maxseg);
 
 		/*
 		 * Regular in-order ACK, open the congestion window.
@@ -164,7 +164,7 @@ newreno_after_idle(struct cc_var *ccv)
 static void
 newreno_cong_signal(struct cc_var *ccv, uint32_t type)
 {
-	u_int win;
+	unsigned win;
 
 	/* Catch algos which mistakenly leak private signal types. */
 	KASSERT((type & CC_SIGPRIVMASK) == 0,
