@@ -154,9 +154,7 @@ void cc_cong_signal(struct cc_var *ccv, uint32_t type, uint32_t bytes_in_pipe)
 
     switch(type) {
     case CC_NDUPACK:
-        break;
     case CC_ECN:
-        assert(!"TODO");
         break;
     case CC_FIRST_RTO:
         CCV(ccv, snd_cwnd_prev) = CCV(ccv, snd_cwnd);
